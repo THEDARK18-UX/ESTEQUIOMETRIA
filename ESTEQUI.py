@@ -6,14 +6,13 @@ import re
 st.set_page_config(page_title="⚗️ QuimicAula PRO", layout="centered")
 st.title("⚗️ QuimicAula PRO - Resolución Estequiométrica Total")
 
-# Tabla periódica básica con algunas masas molares comunes
+# Tabla periódica simple (puedes expandirla)
 masas_molares = {
     "H": 1.008, "O": 16.00, "C": 12.01, "N": 14.01,
     "Cl": 35.45, "Na": 22.99, "K": 39.10, "Mg": 24.31,
     "Ca": 40.08, "S": 32.07, "Fe": 55.85, "Zn": 65.38
 }
 
-# Función para parsear fórmulas químicas
 def parse_formula(formula):
     elements = re.findall(r'([A-Z][a-z]*)(\d*)', formula)
     parsed = {}
@@ -22,7 +21,6 @@ def parse_formula(formula):
         parsed[element] = parsed.get(element, 0) + count
     return parsed
 
-# Función para balancear ecuación química
 def balancear_ecuacion(reactivos, productos):
     elementos = sorted(set(e for f in reactivos + productos for e in parse_formula(f)))
     n = len(reactivos) + len(productos)
@@ -32,16 +30,15 @@ def balancear_ecuacion(reactivos, productos):
         lhs = sum(parse_formula(f).get(el, 0) * variables[i] for i, f in enumerate(reactivos))
         rhs = sum(parse_formula(f).get(el, 0) * variables[i+len(reactivos)] for i, f in enumerate(productos))
         ecuaciones.append(Eq(lhs, rhs))
-    ecuaciones.append(Eq(variables[0], 1))  # fijar primer coeficiente
+    ecuaciones.append(Eq(variables[0], 1))
     solucion = solve(ecuaciones, variables, dict=True)[0]
     return [solucion.get(v, 1) for v in variables]
 
-# Cálculo de masa molar total
 def calcular_masa_molar(formula):
     parsed = parse_formula(formula)
     return sum(masas_molares[el] * cant for el, cant in parsed.items())
 
-# --- Interfaz de usuario ---
+# --- Interfaz ---
 st.markdown("### Paso 1: Ingrese Reactivos y Productos")
 
 col1, col2 = st.columns(2)
@@ -81,18 +78,4 @@ if st.button("🔬 Balancear ecuación"):
             masa_dada = calcular_masa_molar(sustancia_dada)
             masa_obj = calcular_masa_molar(sustancia_objetivo)
 
-            moles_dada = gramos_dados / masa_dada
-            relacion = coef[idx_objetivo] / coef[idx_dada]
-            moles_obj = moles_dada * relacion
-            gramos_obj = moles_obj * masa_obj
-
-            st.markdown(f"""
-            ### Resultado:
-            - Masa molar de **{sustancia_dada}**: {masa_dada:.2f} g/mol  
-            - Masa molar de **{sustancia_objetivo}**: {masa_obj:.2f} g/mol  
-            - Moles de **{sustancia_dada}**: {moles_dada:.4f} mol  
-            - Relación molar (**{coef[idx_objetivo]}** / **{coef[idx_dada]}**)  
-            - **Gramos de {sustancia_objetivo}**: **{gramos_obj:.2f} g**
-            """)
-    except Exception as e:
-        st.error(f"❌ Error en balanceo o cálculo: {e}")
+            moles_dada = gramos_
