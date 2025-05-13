@@ -2,10 +2,11 @@ import streamlit as st
 from sympy import symbols, Eq, solve
 import re
 
+# Configuración de la página en Streamlit
 st.set_page_config(page_title="⚗️ QuimicAula PRO", layout="centered")
 st.title("⚗️ QuimicAula PRO - Cálculo Estequiométrico")
 
-# Tabla periódica (puedes ampliar según necesidad)
+# Tabla periódica (puedes ampliarla según tus necesidades)
 masas_molares = {
     "H": 1.008, "O": 16.00, "C": 12.01, "N": 14.01,
     "Cl": 35.45, "Na": 22.99, "K": 39.10, "Mg": 24.31,
@@ -13,6 +14,9 @@ masas_molares = {
 }
 
 def parse_formula(formula):
+    """
+    Analiza una fórmula química y devuelve un diccionario con los elementos y sus cantidades.
+    """
     elementos = re.findall(r'([A-Z][a-z]*)(\d*)', formula)
     resultado = {}
     for elemento, cantidad in elementos:
@@ -21,6 +25,9 @@ def parse_formula(formula):
     return resultado
 
 def balancear_ecuacion(reactivos, productos):
+    """
+    Balancea la ecuación química entre reactivos y productos.
+    """
     todos = reactivos + productos
     elementos = sorted(set(e for f in todos for e in parse_formula(f)))
     n = len(todos)
@@ -29,14 +36,17 @@ def balancear_ecuacion(reactivos, productos):
 
     for el in elementos:
         izq = sum(parse_formula(f).get(el, 0) * x[i] for i, f in enumerate(reactivos))
-        der = sum(parse_formula(f).get(el, 0) * x[i+len(reactivos)] for i, f in enumerate(productos))
+        der = sum(parse_formula(f).get(el, 0) * x[i + len(reactivos)] for i, f in enumerate(productos))
         ecuaciones.append(Eq(izq, der))
 
-    ecuaciones.append(Eq(x[0], 1))  # Normalizar
+    ecuaciones.append(Eq(x[0], 1))  # Normalizar para obtener una solución
     solucion = solve(ecuaciones, x, dict=True)[0]
     return [solucion.get(var, 1) for var in x]
 
 def calcular_masa_molar(formula):
+    """
+    Calcula la masa molar de una sustancia dada su fórmula.
+    """
     elementos = parse_formula(formula)
     return sum(masas_molares.get(el, 0) * cant for el, cant in elementos.items())
 
@@ -56,6 +66,7 @@ if st.button("⚖️ Balancear ecuación"):
         coef_reactivos = coef[:n_reac]
         coef_productos = coef[n_reac:]
 
+        # Generación de la ecuación balanceada
         ecuacion = " + ".join(f"{int(c)} {r}" for c, r in zip(coef_reactivos, reactivos))
         ecuacion += " → "
         ecuacion += " + ".join(f"{int(c)} {p}" for c, p in zip(coef_productos, productos))
@@ -73,11 +84,17 @@ if st.button("⚖️ Balancear ecuación"):
         sust_obj = st.selectbox("Sustancia a calcular (en gramos):", [s for s in sustancias if s != sust_dada])
 
         if st.button("📈 Calcular Gramos"):
+            # Realización de cálculos estequiométricos
             idx_dada = sustancias.index(sust_dada)
             idx_obj = sustancias.index(sust_obj)
+
             masa_dada = calcular_masa_molar(sust_dada)
             masa_obj = calcular_masa_molar(sust_obj)
+            
+            # Moles de la sustancia dada
             moles_dada = gramos_dados / masa_dada
+
+            # Proporción entre los coeficientes de la ecuación balanceada
             proporcion = coef[idx_obj] / coef[idx_dada]
             moles_obj = moles_dada * proporcion
             gramos_obj = moles_obj * masa_obj
@@ -89,4 +106,4 @@ if st.button("⚖️ Balancear ecuación"):
             - Gramos producidos de **{sust_obj}**: **{gramos_obj:.2f} g**
             """)
     except Exception as e:
-        st.error(f"❌ Error al procesar: {e}")
+        st.error(f"❌ Error al procesar la ecuación: {e}")
