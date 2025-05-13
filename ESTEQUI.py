@@ -1,78 +1,98 @@
+# app.py
 import streamlit as st
-import random
+from sympy import symbols, Eq, solve
+import re
 
-st.set_page_config(page_title="QuimicAula - Estequiometría", layout="centered")
+st.set_page_config(page_title="⚗️ QuimicAula PRO", layout="centered")
+st.title("⚗️ QuimicAula PRO - Resolución Estequiométrica Total")
 
-# Diccionario de reacciones químicas base
-reacciones = [
-    {
-        "ecuacion": "2 H₂ + O₂ → 2 H₂O",
-        "reactivo": "H₂",
-        "producto": "H₂O",
-        "relacion": (2, 2),
-        "masa_molar_reactivo": 2.0,
-        "masa_molar_producto": 18.0
-    },
-    {
-        "ecuacion": "N₂ + 3 H₂ → 2 NH₃",
-        "reactivo": "H₂",
-        "producto": "NH₃",
-        "relacion": (3, 2),
-        "masa_molar_reactivo": 2.0,
-        "masa_molar_producto": 17.0
-    },
-    {
-        "ecuacion": "CH₄ + 2 O₂ → CO₂ + 2 H₂O",
-        "reactivo": "CH₄",
-        "producto": "CO₂",
-        "relacion": (1, 1),
-        "masa_molar_reactivo": 16.0,
-        "masa_molar_producto": 44.0
-    }
-]
+# Tabla periódica básica con algunas masas molares comunes
+masas_molares = {
+    "H": 1.008, "O": 16.00, "C": 12.01, "N": 14.01,
+    "Cl": 35.45, "Na": 22.99, "K": 39.10, "Mg": 24.31,
+    "Ca": 40.08, "S": 32.07, "Fe": 55.85, "Zn": 65.38
+}
 
-st.title("🧪 QuimicAula: Aprende Estequiometría Jugando")
-st.write("Selecciona una función para comenzar:")
+# Función para parsear fórmulas químicas
+def parse_formula(formula):
+    elements = re.findall(r'([A-Z][a-z]*)(\d*)', formula)
+    parsed = {}
+    for (element, count) in elements:
+        count = int(count) if count else 1
+        parsed[element] = parsed.get(element, 0) + count
+    return parsed
 
-# Botones principales
+# Función para balancear ecuación química
+def balancear_ecuacion(reactivos, productos):
+    elementos = sorted(set(e for f in reactivos + productos for e in parse_formula(f)))
+    n = len(reactivos) + len(productos)
+    variables = symbols(f'x1:{n+1}')
+    ecuaciones = []
+    for el in elementos:
+        lhs = sum(parse_formula(f).get(el, 0) * variables[i] for i, f in enumerate(reactivos))
+        rhs = sum(parse_formula(f).get(el, 0) * variables[i+len(reactivos)] for i, f in enumerate(productos))
+        ecuaciones.append(Eq(lhs, rhs))
+    ecuaciones.append(Eq(variables[0], 1))  # fijar primer coeficiente
+    solucion = solve(ecuaciones, variables, dict=True)[0]
+    return [solucion.get(v, 1) for v in variables]
+
+# Cálculo de masa molar total
+def calcular_masa_molar(formula):
+    parsed = parse_formula(formula)
+    return sum(masas_molares[el] * cant for el, cant in parsed.items())
+
+# --- Interfaz de usuario ---
+st.markdown("### Paso 1: Ingrese Reactivos y Productos")
+
 col1, col2 = st.columns(2)
-
 with col1:
-    if st.button("🎲 Generador de ejercicios aleatorios"):
-        reaccion = random.choice(reacciones)
-        masa_dada = random.randint(5, 50)
-
-        moles_reactivo = masa_dada / reaccion["masa_molar_reactivo"]
-        moles_producto = moles_reactivo * reaccion["relacion"][1] / reaccion["relacion"][0]
-        masa_producto = moles_producto * reaccion["masa_molar_producto"]
-
-        st.subheader("🔍 Ejercicio Aleatorio")
-        st.markdown(f"""
-        Dada la siguiente reacción balanceada:
-
-        **{reaccion['ecuacion']}**
-
-        Si se hacen reaccionar **{masa_dada} g** de **{reaccion['reactivo']}**,  
-        ¿cuántos gramos de **{reaccion['producto']}** se obtendrán?
-        """)
-
-        st.info("Trata de resolverlo por tu cuenta antes de pedir la solución.")
-
-        if st.button("Mostrar solución"):
-            st.success(f"Respuesta: Se obtendrán aproximadamente **{masa_producto:.2f} g** de {reaccion['producto']}.")
-
+    reactivos = st.text_input("Reactivos (separados por comas)", "H2, O2").replace(" ", "").split(",")
 with col2:
-    st.subheader("📥 Resolver mi propio ejercicio")
-    st.write("Completa los datos para que el sistema calcule la masa del producto.")
+    productos = st.text_input("Productos (separados por comas)", "H2O").replace(" ", "").split(",")
 
-    ecuacion = st.selectbox("Selecciona una ecuación:", [r["ecuacion"] for r in reacciones])
-    seleccionada = next(r for r in reacciones if r["ecuacion"] == ecuacion)
+if st.button("🔬 Balancear ecuación"):
+    try:
+        coef = balancear_ecuacion(reactivos, productos)
+        n_reac = len(reactivos)
+        coefs_reac = coef[:n_reac]
+        coefs_prod = coef[n_reac:]
 
-    masa_ingresada = st.number_input(f"Ingrese la masa en gramos de {seleccionada['reactivo']}:", min_value=0.0)
+        ecuacion = " + ".join(f"{int(c)} {r}" for c, r in zip(coefs_reac, reactivos))
+        ecuacion += " → "
+        ecuacion += " + ".join(f"{int(c)} {p}" for c, p in zip(coefs_prod, productos))
 
-    if st.button("Calcular producto obtenido"):
-        moles_reactivo = masa_ingresada / seleccionada["masa_molar_reactivo"]
-        moles_producto = moles_reactivo * seleccionada["relacion"][1] / seleccionada["relacion"][0]
-        masa_producto = moles_producto * seleccionada["masa_molar_producto"]
+        st.success(f"✅ Ecuación balanceada:\n\n{ecuacion}")
 
-        st.success(f"Con {masa_ingresada} g de {seleccionada['reactivo']}, se obtendrán aproximadamente {masa_producto:.2f} g de {seleccionada['producto']}.")
+        st.markdown("### Paso 2: Cálculo Estequiométrico")
+
+        sustancias = reactivos + productos
+        col3, col4 = st.columns(2)
+        with col3:
+            sustancia_dada = st.selectbox("Sustancia conocida (tienes en gramos):", sustancias)
+        with col4:
+            gramos_dados = st.number_input("Cantidad disponible (en gramos):", min_value=0.0, format="%.2f")
+
+        sustancia_objetivo = st.selectbox("Sustancia a calcular (en gramos):", [s for s in sustancias if s != sustancia_dada])
+
+        if st.button("📈 Calcular"):
+            idx_dada = sustancias.index(sustancia_dada)
+            idx_objetivo = sustancias.index(sustancia_objetivo)
+
+            masa_dada = calcular_masa_molar(sustancia_dada)
+            masa_obj = calcular_masa_molar(sustancia_objetivo)
+
+            moles_dada = gramos_dados / masa_dada
+            relacion = coef[idx_objetivo] / coef[idx_dada]
+            moles_obj = moles_dada * relacion
+            gramos_obj = moles_obj * masa_obj
+
+            st.markdown(f"""
+            ### Resultado:
+            - Masa molar de **{sustancia_dada}**: {masa_dada:.2f} g/mol  
+            - Masa molar de **{sustancia_objetivo}**: {masa_obj:.2f} g/mol  
+            - Moles de **{sustancia_dada}**: {moles_dada:.4f} mol  
+            - Relación molar (**{coef[idx_objetivo]}** / **{coef[idx_dada]}**)  
+            - **Gramos de {sustancia_objetivo}**: **{gramos_obj:.2f} g**
+            """)
+    except Exception as e:
+        st.error(f"❌ Error en balanceo o cálculo: {e}")
